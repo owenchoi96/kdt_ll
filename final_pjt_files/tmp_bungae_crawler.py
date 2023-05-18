@@ -67,9 +67,9 @@ def prd_id_extractor(category_num):
             
         page_num += 1
         
-    print(f"{category_num} done")
-    time.sleep(random.randint(10,15)) # 한 카테고리에서의 크롤링 끝나고 잠시 대기하고 다음 카테고리 크롤링 할 수 있도록
-                                     # block의 가능성을 줄여주기 위해서 
+    print('category num %s done'%(category_num))
+    time.sleep(0.03) 
+    
     return prd_id_list
 
 
@@ -112,14 +112,16 @@ def prd_crawler(prd_id):
         info = data['data']['product']['description']
         date = data['data']['product']['updatedAt']
         cat_id = data['data']['product']['category']['id']
+        keywords = ",".join(data['data']['product']['keywords'])
+
     except:
-        product_id, product_name, image_url, image_cnt, price, info, cat_id, date =\
-            None, None, None, None, None, None, None, None
+        product_id, product_name, image_url, image_cnt, price, info, cat_id, date, keywords =\
+            None, None, None, None, None, None, None, None, None
         
-    print('product id {} done'.format(prd_id))   
-    time.sleep(random.randint(30,60)) # block을 당할 가능성을 줄이기 위해 time.sleep 조금 길게 둠. 
+    print('product id %s done'%(product_id))
+    time.sleep(1) # block을 당할 가능성을 줄이기 위해 time.sleep 조금 길게 둠. 
     
-    return [product_id, product_name, image_url, image_cnt, price, info, cat_id, date] # 리스트로 반환
+    return [product_id, product_name, image_url, image_cnt, price, info, cat_id, date, keywords] # 리스트로 반환
 
 def prd_mp_2(prd_list:list):
     """
@@ -133,7 +135,7 @@ def prd_mp_2(prd_list:list):
     
     gc.collect()
     
-    prd_df = pd.DataFrame(product_info_list, columns = ['product_id', 'product_name', 'image_url', 'image_cnt', 'price', 'info', 'cat_id', 'date'])
+    prd_df = pd.DataFrame(product_info_list, columns = ['product_id', 'product_name', 'image_url', 'image_cnt', 'price', 'info', 'cat_id', 'date', 'keywords'])
     prd_df = prd_df.dropna()
     
     return prd_df # 모든 상품 id가 들어있는 리스트 
@@ -142,8 +144,15 @@ if __name__ == '__main__':
     start = time.time()
     cat_list = extract_usable_cat_id_only() # url과 같이 사용이 가능한 카테고리 리스트
     prd_list = prd_mp_1(cat_list) # Pool 사용하여 카테고리에 따라 모든 상품 id 가져오기 
-    prd_df = prd_mp_2(prd_list) # 다음 Pool
-    prd_df.to_csv('test_df.csv', index=False) # 데이터 프레임으로 만들어주기
+
+    for idx in range(9): # 분할해서 데이터 프레임으로 만들기 
+        try:
+            result = prd_mp_2(prd_list[idx::9])
+            result.to_csv(f'bungae_df_{idx}.csv', index=False)
+            print('{} dataframe created'.format(idx))
+            time.sleep(6)
+        except:
+            pass
         
     #### 필요한 후속처리 ####
     # cat_id --> cat_1, cat_2, cat_3로 나눌 것인지?
@@ -151,6 +160,7 @@ if __name__ == '__main__':
     
     end = time.time()
     print('수행시간', end-start)
+
     gc.collect()
     
     
