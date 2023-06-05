@@ -1,4 +1,5 @@
 # -- image_url의 형태가 예상한것과 달라서 list를 이용한 multiprocessing이 어려울 것 같음 -- 
+# -- 수정 필요 --
 import urllib.request
 import time
 import pandas as pd
