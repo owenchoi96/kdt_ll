@@ -2,39 +2,65 @@
 import urllib.request
 import time
 import pandas as pd
+import re
+from PIL import Image
+import gc
+from multiprocessing import Pool
+import multiprocessing
 
-def crawl_images_and_put_in_folders(df):
+def crawl_images_and_put_in_folders(url_and_cat_id, target_size=(224, 224)):
+    # cat_id
+    cat_id = url_and_cat_id.split('__')[-1]
+
+    # url 
+    url = url_and_cat_id.split('__')[0]
+
+    # prd_id
+    prd_id = re.findall(r'\b\/\w+\_', url_and_cat_id)[-1]
+    prd_id = prd_id.replace('/', '').replace('_', '')
+
+    removed_prd_id = None
+    try:                                   
+        urllib.request.urlretrieve(url, f'./bungae_fashion_image/{cat_id}/{prd_id}_image.jpg')
+
+        # image 사이즈 줄이기 
+        image_path = f'./bungae_fashion_image/{cat_id}/{prd_id}_image.jpg'
+        image = Image.open(image_path)
+        image = image.resize(target_size)
+        # Save the resized image
+        image.save(image_path)
+
+        print(f'{prd_id} image crawled')
+    except:
+        pass 
     
-    removed_prd_id_list = list()
+    return 
+
+def url_cat_id_mp(url_cat_id_list:list):
     
-    start = time.time()
+    pool = multiprocessing.Pool(4) # cpu 개수 -> 4
+    pool.map(crawl_images_and_put_in_folders, url_cat_id_list) 
     
-    for idx in range(len(df)):
-        url = df.loc[idx, 'image_url']
-        cat_id = df.loc[idx, 'cat_id']
-        prd_id = df.loc[idx, 'product_id']
-        # -- 사라진 상품들이 있을 수 있기 때문에 try/except로 확인 필요 -- 
-        try:                                   # -- 폴더명은 변경될 수 있습니다 --
-            urllib.request.urlretrieve(url, f'./bungae_fashion_image/{cat_id}/{prd_id}_image.jpg')
-            end = time.time()
-            print(f'{prd_id} image crawled')
-        except:
-            removed_prd_id_list.append(prd_id)
-            pass 
+    pool.close()
+    pool.join()
     
-    end = time.time()
-    print(f'----- time lapsed : {end-start} -----')
-    print(f'------ 사라진 상품 갯수 : {len(removed_prd_id_list)} --------', )
-    
-    # -- 사라진 상품 product_id 리스트 --
-    # -- 나중에 해당 상품들은 없애야할 것으로 보임
-    with open('./bungae_removed_prd_id.txt', 'w+') as file: 
-        file.write(','.join(removed_prd_id_list))
-        
+    gc.collect()
+
     return 
 
 if __name__ == '__main__':
-    # -- bungae_image_df를 먼저 불러옵니다 --
-    bungae_image_df = pd.read_csv('./bungae_image_df.csv')
     
-    crawl_images_and_put_in_folders(bungae_image_df)
+    start_time = time.time()
+
+    with open('./bungae_url_cat_id_list.txt', 'r') as file: 
+        data = file.read()
+    url_cat_id_list = data.split(',') # 상품 list
+
+    for idx in range(9): # 분할해서 데이터 프레임으로 만들기 
+        url_cat_id_mp(url_cat_id_list[idx::9])
+        time.sleep(30)
+    
+    end_time = time.time()
+    print('수행시간', end_time-start_time)
+
+    gc.collect()
